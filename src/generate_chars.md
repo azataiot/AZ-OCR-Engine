@@ -1,5 +1,5 @@
 
-`python generate_chars.py --out_dir src/dataset --font_dir src/fonts --width 30 --height 30 --margin 4 --rotate 30 --rotate_step 1`
+`python generate_chars.py --out_dir ./dataset --font_dir ./fonts --width 30 --height 30 --margin 4 --rotate 30 --rotate_step 1`
 
 
 
