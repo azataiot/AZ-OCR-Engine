@@ -192,8 +192,8 @@ for image in images:
     p=progressbar.ProgressBar()
 
     print("\n*** AZ OCR INFO:正在切割并保存图片，请稍等...***\n")
+    cutImage(image, peek_range)
     for i in p(range(100)):
-        cutImage(image, peek_range)
         time.sleep(0.01)
     print("\n*** AZ OCR INFO:Done！...***\n")
 
