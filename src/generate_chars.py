@@ -1,37 +1,37 @@
 # -*- coding: utf-8 -*-
 
-from PIL import Image # image handling pack
+from __future__ import print_function
+
+from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
-import pickle 
-import pprint #pretty print ,print objects in line one line and one 
-import fnmatch # file name match .returns bool . just check the name of the file is the same or not.
+import pickle
+import argparse
+from argparse import RawTextHelpFormatter
+import fnmatch
 import os
 import cv2
 import json
 import random
-import numpy as np 
-import shutil # advanced file processing pack
-import copy #just used to copy the data 
+import numpy as np
+import shutil
 import traceback
-import argparse
-from argparse import RawTextHelpFormatter
+import copy
 import sys
 
 
-
-class dataAugmentation(object):  #Rotation/reflection/flip/zoom/shift/scale/contrast/noise/color
+class dataAugmentation(object):
     def __init__(self,noise=True,dilate=True,erode=True):
-        self.noise=noise
-        self.dilate=dilate
-        self.erode=erode
+        self.noise = noise
+        self.dilate = dilate
+        self.erode = erode
 
-    @classmethod
+    @classmethod 
     def add_noise(cls,img):
-        for i in range(20): #add noise
-            temp_x=np.random.randint(0,img.shape[0])
-            temp_y=np.random.randint(0,img.shape[1])
-            img[temp_x][temp_y] =255
+        for i in range(20): 
+            temp_x = np.random.randint(0,img.shape[0])
+            temp_y = np.random.randint(0,img.shape[1])
+            img[temp_x][temp_y] = 255
         return img
 
     @classmethod
@@ -59,8 +59,6 @@ class dataAugmentation(object):  #Rotation/reflection/flip/zoom/shift/scale/cont
             aug_list.append(im)
         return aug_list
 
-
-# Scale the font image proportionally
 class PreprocessResizeKeepRatio(object):
 
     def __init__(self, width, height):
@@ -79,6 +77,7 @@ class PreprocessResizeKeepRatio(object):
 
         new_size = (min(int(cur_width*ratio), max_width),
                     min(int(cur_height*ratio), max_height))
+
         new_size = (max(new_size[0], 1),
                     max(new_size[1], 1),)
 
@@ -86,11 +85,10 @@ class PreprocessResizeKeepRatio(object):
         return resized_img
 
 
-# Find the smallest inclusion rectangle of a font
 class FindImageBBox(object):
     def __init__(self, ):
         pass
-    
+
     def do(self, img):
         height = img.shape[0]
         width = img.shape[1]
@@ -100,17 +98,14 @@ class FindImageBBox(object):
         right = width - 1
         top = 0
         low = height - 1
-        # Scan from left to right, encountering a non-zero pixel as the left border of the font
         for i in range(width):
             if v_sum[i] > 0:
                 left = i
                 break
-        
         for i in range(width - 1, -1, -1):
             if v_sum[i] > 0:
                 right = i
                 break
-
         for i in range(height):
             if h_sum[i] > 0:
                 top = i
@@ -119,11 +114,8 @@ class FindImageBBox(object):
             if h_sum[i] > 0:
                 low = i
                 break
-
-        
         return (left, top, right, low)
-
-
+	
 class PreprocessResizeKeepRatioFillBG(object):
 
     def __init__(self, width, height,
@@ -135,7 +127,6 @@ class PreprocessResizeKeepRatioFillBG(object):
         self.fill_bg = fill_bg
         self.auto_avoid_fill_bg = auto_avoid_fill_bg
         self.margin = margin
-        
 
     @classmethod
     def is_need_fill_bg(cls, cv2_img, th=0.5, max_val=255):
@@ -146,7 +137,6 @@ class PreprocessResizeKeepRatioFillBG(object):
         if width * 3 < height:
             return True
         return False
-
 
     @classmethod
     def put_img_into_center(cls, img_large, img_small, ):
@@ -161,16 +151,14 @@ class PreprocessResizeKeepRatioFillBG(object):
         if height_large < height_small:
             raise ValueError("height_large <= height_small")
 
-        start_width = (width_large - width_small) / 2
-        start_height = (height_large - height_small) / 2
+        start_width = (width_large - width_small) // 2
+        start_height = (height_large - height_small) // 2
 
         img_large[start_height:start_height + height_small,
                   start_width:start_width + width_small] = img_small
-
         return img_large
 
     def do(self, cv2_img):
-		# 
         if self.margin is not None:
             width_minus_margin = max(2, self.width - self.margin)
             height_minus_margin = max(2, self.height - self.margin)
@@ -196,7 +184,6 @@ class PreprocessResizeKeepRatioFillBG(object):
             else:
                 self.fill_bg = True
 
-
         ## should skip horizontal stroke
         if not self.fill_bg:
             ret_img = cv2.resize(resized_cv2_img, (width_minus_margin,
@@ -211,7 +198,6 @@ class PreprocessResizeKeepRatioFillBG(object):
                 norm_img = np.zeros((height_minus_margin,
                                      width_minus_margin),
                                     np.uint8)
-			# Place the scaled font image in the center of the background image
             ret_img = self.put_img_into_center(norm_img, resized_cv2_img)
 
         if self.margin is not None:
@@ -225,9 +211,8 @@ class PreprocessResizeKeepRatioFillBG(object):
                                      self.width),
                                     np.uint8)
             ret_img = self.put_img_into_center(norm_img, ret_img)
-        return ret_img   
+        return ret_img
 
-# check the fonts availablity
 class FontCheck(object):
 
     def __init__(self, lang_chars, width=32, height=32):
@@ -240,10 +225,8 @@ class FontCheck(object):
         height = self.height
         try:
             for i, char in enumerate(self.lang_chars):
-                img = Image.new("RGB", (width, height), "black") # black fonts
+                img = Image.new("RGB", (width, height), "black") # 
                 draw = ImageDraw.Draw(img)
-                font = ImageFont.truetype(font_path, int(width * 0.9),)
-                # white fonts
                 draw.text((0, 0), char, (255, 255, 255),
                           font=font)
                 data = list(img.getdata())
@@ -258,9 +241,6 @@ class FontCheck(object):
             return False
         return True
 
-
-
-# generate the pictures
 class Font2Image(object):
 
     def __init__(self,
@@ -273,11 +253,9 @@ class Font2Image(object):
 
     def do(self, font_path, char, rotate=0):
         find_image_bbox = FindImageBBox()
-        # black back
         img = Image.new("RGB", (self.width, self.height), "black")
         draw = ImageDraw.Draw(img)
         font = ImageFont.truetype(font_path, int(self.width * 0.7),)
-        # white font
         draw.text((0, 0), char, (255, 255, 255),
                   font=font)
         if rotate != 0:
@@ -305,15 +283,13 @@ class Font2Image(object):
         else:
             print("img doesn't exist.")
 
-# Attention: inside the kz_labels document, data ordered as : (ID:Character)
 def get_label_dict():
-    f=open('src/kz_labels','rb') # 问题1
+    f=open('src/kz_labels','rb')
     label_dict = pickle.load(f)
     f.close()
     return label_dict
 
 def args_parse():
-    #input parser
     parser = argparse.ArgumentParser(
         description=description, formatter_class=RawTextHelpFormatter)
     parser.add_argument('--out_dir', dest='out_dir',
@@ -348,6 +324,7 @@ def args_parse():
                         help='need data augmentation', action='store_true')   
     args = vars(parser.parse_args()) 
     return args
+
 if __name__ == "__main__":
 
     description = '''
@@ -370,7 +347,6 @@ python gen_printed_char.py --out_dir ./dataset \
     train_image_dir_name = "train"
     test_image_dir_name = "test"
 
-    # sepretly save the dataset to train_images_dir and the test_images_dir
     train_images_dir = os.path.join(out_dir, train_image_dir_name)
     test_images_dir = os.path.join(out_dir, test_image_dir_name)
 
@@ -382,17 +358,15 @@ python gen_printed_char.py --out_dir ./dataset \
         shutil.rmtree(test_images_dir)
     os.makedirs(test_images_dir)
     
-    #get read the label file and get the character and the ID
     label_dict = get_label_dict()
     
-    char_list=[]  # character list
-    value_list=[] # label list
+    char_list=[]  # 
+    value_list=[] # 
     for (value,chars) in label_dict.items():
         print (value,chars)
         char_list.append(chars)
         value_list.append(value)
 
-    # new label order：（character：ID）
     lang_chars = dict(zip(char_list,value_list)) 
     font_check = FontCheck(lang_chars) 
     
@@ -407,7 +381,7 @@ python gen_printed_char.py --out_dir ./dataset \
             all_rotate_angles.append(i)
         #print(all_rotate_angles)
     
-    # 对于每类字体进行小批量测试
+
     verified_font_paths = []
     ## search for file fonts
     for font_name in os.listdir(font_dir):
@@ -417,11 +391,11 @@ python gen_printed_char.py --out_dir ./dataset \
 
     font2image = Font2Image(width, height, need_crop, margin)
 
-    for (char, value) in lang_chars.items():  # loop for character
+    for (char, value) in lang_chars.items():  # 
         image_list = []
         print (char,value)
         #char_dir = os.path.join(images_dir, "%0.5d" % value)
-        for j, verified_font_path in enumerate(verified_font_paths):    # loop for the font  
+        for j, verified_font_path in enumerate(verified_font_paths):    #    
             if rotate == 0:
                 image = font2image.do(verified_font_path, char)
                 image_list.append(image)
@@ -436,7 +410,7 @@ python gen_printed_char.py --out_dir ./dataset \
             image_list = data_aug.do(image_list)
             
         test_num = len(image_list) * test_ratio
-        random.shuffle(image_list)  # pictures in unordered order
+        random.shuffle(image_list)  # 
         count = 0
         for i in range(len(image_list)):
             img = image_list[i]
@@ -452,7 +426,3 @@ python gen_printed_char.py --out_dir ./dataset \
             path_image = os.path.join(char_dir,"%d.png" % count)
             cv2.imwrite(path_image,img)
             count += 1
-
-
-
-# python gen_char.py --out_dir ocr/local/dataset/ --font_dir ocr/local/generate/kz_fonts_simple/ --width 30 --height 30 --margin 4 --rotate 30 --rotate_step 1
